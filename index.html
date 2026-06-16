@@ -124,14 +124,32 @@ body{
 /* Century nav */
 .century-nav{
   max-width:1280px;margin:0 auto;
-  padding:5px 24px;
-  display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;
+  padding:4px 24px 2px;
+  display:flex;flex-direction:column;gap:0;
   border-top:1px solid var(--border-lt);
 }
-.century-nav::-webkit-scrollbar{display:none}
+.century-row,.century-sub-row{
+  display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;
+  padding:3px 0;
+}
+.century-row::-webkit-scrollbar,.century-sub-row::-webkit-scrollbar{display:none}
+.century-sub-row{
+  border-top:1px dotted var(--border-lt);
+  margin-top:1px;
+}
+.cg-btn{
+  padding:4px 12px;border-radius:10px;border:1px solid var(--border);
+  background:var(--bg-card);font-size:11.5px;color:var(--muted);
+  cursor:pointer;white-space:nowrap;flex-shrink:0;
+  transition:all .12s;font-family:'Noto Sans TC',sans-serif;
+}
+.cg-btn:hover{border-color:var(--accent);color:var(--accent)}
+.cg-btn.active{border-color:var(--accent);background:var(--accent-lt);color:var(--accent);font-weight:600}
+.cg-btn.open{border-color:var(--accent);color:var(--accent);background:var(--bg-alt)}
+.cg-arr{font-size:9px;opacity:.6;margin-left:1px}
 .century-btn{
-  padding:3px 10px;border-radius:10px;border:1px solid var(--border);
-  background:var(--bg-card);font-size:11px;color:var(--muted);
+  padding:3px 9px;border-radius:8px;border:1px solid var(--border-lt);
+  background:var(--bg);font-size:11px;color:var(--muted);
   cursor:pointer;white-space:nowrap;flex-shrink:0;
   transition:all .12s;font-family:'Noto Sans TC',sans-serif;
 }
@@ -366,35 +384,110 @@ function centuryLabel(c){
   return c+'世紀';
 }
 
+function checkCentury(yr){
+  if(activeCentury === 'all') return true;
+  if(activeCentury === 'ancient') return yr < -2100;
+  if(activeCentury === 'bce')  return yr >= -2100 && yr < 0;
+  if(activeCentury === 'ce1')  return yr >= 1 && yr <= 1000;
+  if(activeCentury === 'ce2')  return yr > 1000 && yr <= 2000;
+  const ec = yr < -2100 ? 'ancient' : yr >= 0 ? Math.floor(yr/100)+1 : -(Math.floor((-yr-1)/100)+1);
+  return ec === activeCentury;
+}
+
 function buildCenturyNav(){
   const nav = document.getElementById('century-nav');
   nav.innerHTML = '';
-  const all = document.createElement('button');
-  all.className = 'century-btn active';
-  all.textContent = '全部年代';
-  all.dataset.c = 'all';
-  all.onclick = () => setCentury('all');
-  nav.appendChild(all);
-  CENTURIES.forEach(({c, n}) => {
-    const b = document.createElement('button');
-    b.className = 'century-btn';
-    b.dataset.c = String(c);
-    b.innerHTML = centuryLabel(c) + ' <span style="opacity:.55;font-size:10px">' + n + '</span>';
-    b.onclick = () => setCentury(c);
-    nav.appendChild(b);
-  });
-}
 
-function setCentury(c){
-  activeCentury = c;
-  document.querySelectorAll('.century-btn').forEach(b => b.classList.toggle('active', b.dataset.c === String(c)));
-  render();
-  if(c !== 'all'){
-    const first = document.querySelector('.entry:not([hidden])');
-    if(first) first.scrollIntoView({behavior:'smooth', block:'start'});
-  } else {
-    scrollTo({top:0, behavior:'smooth'});
+  const hasAncient = CENTURIES.some(x => x.c === 'ancient');
+  const bceCents  = CENTURIES.filter(x => typeof x.c === 'number' && x.c < 0);
+  const ce1Cents  = CENTURIES.filter(x => typeof x.c === 'number' && x.c >= 1  && x.c <= 10);
+  const ce2Cents  = CENTURIES.filter(x => typeof x.c === 'number' && x.c >= 11 && x.c <= 20);
+  const ce21Cents = CENTURIES.filter(x => typeof x.c === 'number' && x.c === 21);
+
+  const groups = [
+    {id:'all',    label:'全部年代', cents:null},
+    ...(hasAncient   ? [{id:'ancient', label:'遠古',       cents:null}] : []),
+    ...(bceCents.length  ? [{id:'bce',    label:'西元前',     cents:bceCents}]  : []),
+    ...(ce1Cents.length  ? [{id:'ce1',    label:'1–10世紀',   cents:ce1Cents}]  : []),
+    ...(ce2Cents.length  ? [{id:'ce2',    label:'11–20世紀',  cents:ce2Cents}]  : []),
+    ...(ce21Cents.length ? [{id:'ce21',   label:'21世紀',     cents:null}]      : []),
+  ];
+
+  const row1 = document.createElement('div');
+  row1.className = 'century-row';
+  const row2 = document.createElement('div');
+  row2.className = 'century-sub-row';
+  row2.style.display = 'none';
+
+  function updateGroupBtns(activeId, openId){
+    row1.querySelectorAll('.cg-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.g === activeId && !openId);
+      b.classList.toggle('open',   b.dataset.g === openId);
+    });
   }
+
+  function openSub(cents){
+    row2.innerHTML = '';
+    cents.forEach(({c, n}) => {
+      const sb = document.createElement('button');
+      sb.className = 'century-btn';
+      sb.dataset.c = String(c);
+      sb.innerHTML = centuryLabel(c) + ' <span style="opacity:.5;font-size:10px">' + n + '</span>';
+      sb.onclick = () => {
+        activeCentury = c;
+        row2.querySelectorAll('.century-btn').forEach(x => x.classList.remove('active'));
+        sb.classList.add('active');
+        render();
+        const first = document.querySelector('.entry:not([hidden])');
+        if(first) first.scrollIntoView({behavior:'smooth', block:'start'});
+      };
+      row2.appendChild(sb);
+    });
+    row2.style.display = 'flex';
+  }
+
+  groups.forEach(({id, label, cents}) => {
+    const btn = document.createElement('button');
+    btn.className = 'cg-btn' + (id === 'all' ? ' active' : '');
+    btn.dataset.g = id;
+    btn.innerHTML = label + (cents ? ' <span class="cg-arr">▾</span>' : '');
+
+    btn.onclick = () => {
+      if(cents){
+        if(openCenturyGroup === id){
+          // 關閉 → 顯示整群
+          openCenturyGroup = null;
+          row2.style.display = 'none';
+          activeCentury = id;
+          updateGroupBtns(id, null);
+        } else {
+          // 開啟
+          openCenturyGroup = id;
+          activeCentury = id;
+          updateGroupBtns(id, id);
+          openSub(cents);
+        }
+      } else {
+        openCenturyGroup = null;
+        row2.style.display = 'none';
+        if(id === 'all') activeCentury = 'all';
+        else if(id === 'ancient') activeCentury = 'ancient';
+        else if(id === 'ce21') activeCentury = 21;
+        updateGroupBtns(id, null);
+      }
+      render();
+      if(activeCentury !== 'all'){
+        const first = document.querySelector('.entry:not([hidden])');
+        if(first) first.scrollIntoView({behavior:'smooth', block:'start'});
+      } else {
+        scrollTo({top:0, behavior:'smooth'});
+      }
+    };
+    row1.appendChild(btn);
+  });
+
+  nav.appendChild(row1);
+  nav.appendChild(row2);
 }
 
 function resetTracks(){
@@ -444,6 +537,7 @@ const CENTURIES = [{"c": "ancient", "n": 20}, {"c": -1, "n": 12}, {"c": -2, "n":
 
 let activeEra = 'all';
 let activeCentury = 'all';
+let openCenturyGroup = null;
 let activeTracks = {tw:true, cn:true, world:true};
 let searchQ = '';
 let visCount = DATA.length;
@@ -469,12 +563,7 @@ function buildEntry(e, q){
   const haWo = e.world && activeTracks.world;
 
   const matched = !q || [e.tw, e.cn, e.world, e.year_raw, e.era].some(t => t && t.toLowerCase().includes(q.toLowerCase()));
-  const yr = e.year;
-  let ec;
-  if(yr < -2100) ec = 'ancient';
-  else if(yr >= 0) ec = Math.floor(yr/100)+1;
-  else ec = -(Math.floor((-yr-1)/100)+1);
-  const inCentury = activeCentury === 'all' || String(ec) === String(activeCentury);
+  const inCentury = checkCentury(e.year);
   if(!matched || !inCentury){ div.hidden = true; }
   if(q && matched && inCentury) div.classList.add('found');
 
