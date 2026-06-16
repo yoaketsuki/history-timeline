@@ -115,10 +115,28 @@ body{
   font-family:inherit;color:var(--muted);
   transition:all .15s;white-space:nowrap;
 }
+.track-btn.on-all{border-color:var(--accent);background:var(--accent-lt);color:var(--accent);font-weight:500}
 .track-btn.on-tw{border-color:var(--tw);background:var(--tw-bg);color:var(--tw);font-weight:500}
 .track-btn.on-cn{border-color:var(--cn);background:var(--cn-bg);color:var(--cn);font-weight:500}
 .track-btn.on-world{border-color:var(--world);background:var(--world-bg);color:var(--world);font-weight:500}
 .track-btn:hover{opacity:.8}
+
+/* Century nav */
+.century-nav{
+  max-width:1280px;margin:0 auto;
+  padding:5px 24px;
+  display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;
+  border-top:1px solid var(--border-lt);
+}
+.century-nav::-webkit-scrollbar{display:none}
+.century-btn{
+  padding:3px 10px;border-radius:10px;border:1px solid var(--border);
+  background:var(--bg-card);font-size:11px;color:var(--muted);
+  cursor:pointer;white-space:nowrap;flex-shrink:0;
+  transition:all .12s;font-family:'Noto Sans TC',sans-serif;
+}
+.century-btn:hover{border-color:var(--accent);color:var(--accent)}
+.century-btn.active{border-color:var(--accent);background:var(--accent-lt);color:var(--accent);font-weight:600}
 
 /* ── ERA NAV ─────────────────────────────── */
 .era-nav{
@@ -297,6 +315,7 @@ mark{background:#fff176;color:inherit;padding:0 1px;border-radius:2px}
       <input id="search" type="text" placeholder="搜尋事件、人物、年代…" autocomplete="off">
     </div>
     <div class="tracks">
+      <button class="track-btn on-all" id="track-all-btn" onclick="resetTracks()">全部</button>
       <button class="track-btn on-tw" data-t="tw">🏝 台灣</button>
       <button class="track-btn on-cn" data-t="cn">🐉 中國</button>
       <button class="track-btn on-world" data-t="world">🌍 世界</button>
@@ -306,6 +325,7 @@ mark{background:#fff176;color:inherit;padding:0 1px;border-radius:2px}
       <a href="map.html" class="nav-btn">🗺 地圖</a>
     </nav>
   </div>
+  <nav class="century-nav" id="century-nav"></nav>
   <nav class="era-nav" id="era-nav"></nav>
 </header>
 
@@ -340,11 +360,64 @@ function submitPass(){
     document.getElementById('pass-input').focus();
   }
 }
+function centuryLabel(c){
+  if(c==='ancient') return '遠古';
+  if(c<0) return '前'+(-c)+'世紀';
+  return c+'世紀';
+}
+
+function buildCenturyNav(){
+  const nav = document.getElementById('century-nav');
+  nav.innerHTML = '';
+  const all = document.createElement('button');
+  all.className = 'century-btn active';
+  all.textContent = '全部年代';
+  all.dataset.c = 'all';
+  all.onclick = () => setCentury('all');
+  nav.appendChild(all);
+  CENTURIES.forEach(({c, n}) => {
+    const b = document.createElement('button');
+    b.className = 'century-btn';
+    b.dataset.c = String(c);
+    b.innerHTML = centuryLabel(c) + ' <span style="opacity:.55;font-size:10px">' + n + '</span>';
+    b.onclick = () => setCentury(c);
+    nav.appendChild(b);
+  });
+}
+
+function setCentury(c){
+  activeCentury = c;
+  document.querySelectorAll('.century-btn').forEach(b => b.classList.toggle('active', b.dataset.c === String(c)));
+  render();
+  if(c !== 'all'){
+    const first = document.querySelector('.entry:not([hidden])');
+    if(first) first.scrollIntoView({behavior:'smooth', block:'start'});
+  } else {
+    scrollTo({top:0, behavior:'smooth'});
+  }
+}
+
+function resetTracks(){
+  activeTracks = {tw:true, cn:true, world:true};
+  document.querySelectorAll('.track-btn[data-t]').forEach(b => {
+    b.className = 'track-btn on-' + b.dataset.t;
+  });
+  syncTrackAll();
+  render();
+}
+
+function syncTrackAll(){
+  const allOn = activeTracks.tw && activeTracks.cn && activeTracks.world;
+  const btn = document.getElementById('track-all-btn');
+  if(btn) btn.className = 'track-btn' + (allOn ? ' on-all' : '');
+}
+
 function showApp(){
   document.getElementById('auth').style.display='none';
   document.getElementById('main-hdr').style.display='block';
   document.getElementById('main').style.display='block';
   document.getElementById('back-top').style.display='flex';
+  buildCenturyNav();
   buildEraNav();
   render();
 }
@@ -368,8 +441,10 @@ const PERIOD_RANGES = {
   '其他':'',
 };
 const COUNTS = {"史前": 20, "夏商周": 72, "秦漢": 45, "魏晉南北朝": 39, "隋唐": 45, "宋元": 64, "明": 28, "清": 116, "現代": 82};
+const CENTURIES = [{"c": "ancient", "n": 20}, {"c": -1, "n": 12}, {"c": -2, "n": 11}, {"c": -3, "n": 5}, {"c": -4, "n": 14}, {"c": -5, "n": 15}, {"c": -6, "n": 12}, {"c": -7, "n": 4}, {"c": -8, "n": 5}, {"c": -9, "n": 1}, {"c": -10, "n": 1}, {"c": -12, "n": 5}, {"c": -13, "n": 1}, {"c": -14, "n": 2}, {"c": -15, "n": 1}, {"c": -16, "n": 2}, {"c": -17, "n": 1}, {"c": -18, "n": 1}, {"c": -19, "n": 3}, {"c": -20, "n": 2}, {"c": -21, "n": 2}, {"c": 1, "n": 9}, {"c": 2, "n": 6}, {"c": 3, "n": 11}, {"c": 4, "n": 11}, {"c": 5, "n": 10}, {"c": 6, "n": 11}, {"c": 7, "n": 12}, {"c": 8, "n": 18}, {"c": 9, "n": 12}, {"c": 10, "n": 16}, {"c": 11, "n": 12}, {"c": 12, "n": 8}, {"c": 13, "n": 20}, {"c": 14, "n": 18}, {"c": 16, "n": 9}, {"c": 17, "n": 44}, {"c": 18, "n": 41}, {"c": 19, "n": 41}, {"c": 20, "n": 49}, {"c": 21, "n": 18}, {"c": 3345, "n": 1}, {"c": 5076, "n": 1}, {"c": 113013, "n": 1}, {"c": 113912, "n": 1}, {"c": 115613, "n": 1}, {"c": 118013, "n": 1}, {"c": 128114, "n": 1}, {"c": 161017, "n": 1}, {"c": 161317, "n": 1}, {"c": 161917, "n": 1}, {"c": 180519, "n": 1}, {"c": 180719, "n": 1}, {"c": 181019, "n": 1}, {"c": 184220, "n": 1}, {"c": 185920, "n": 1}];
 
 let activeEra = 'all';
+let activeCentury = 'all';
 let activeTracks = {tw:true, cn:true, world:true};
 let searchQ = '';
 let visCount = DATA.length;
@@ -395,8 +470,14 @@ function buildEntry(e, q){
   const haWo = e.world && activeTracks.world;
 
   const matched = !q || [e.tw, e.cn, e.world, e.year_raw, e.era].some(t => t && t.toLowerCase().includes(q.toLowerCase()));
-  if(!matched){ div.hidden = true; }
-  if(q && matched) div.classList.add('found');
+  const yr = e.year;
+  let ec;
+  if(yr < -2100) ec = 'ancient';
+  else if(yr >= 0) ec = Math.floor(yr/100)+1;
+  else ec = -(Math.floor((-yr-1)/100)+1);
+  const inCentury = activeCentury === 'all' || String(ec) === String(activeCentury);
+  if(!matched || !inCentury){ div.hidden = true; }
+  if(q && matched && inCentury) div.classList.add('found');
 
   const tag = e.era ? `<span class="dynasty-tag" title="${esc(e.era)}">${esc(e.era)}</span>` : '';
 
@@ -503,7 +584,7 @@ function setEra(era){
 }
 
 // Track toggles
-document.querySelectorAll('.track-btn').forEach(btn => {
+document.querySelectorAll('.track-btn[data-t]').forEach(btn => {
   btn.addEventListener('click', () => {
     const t = btn.dataset.t;
     activeTracks[t] = !activeTracks[t];
@@ -512,6 +593,7 @@ document.querySelectorAll('.track-btn').forEach(btn => {
       activeTracks[t] = true;
       btn.classList.add('on-'+t);
     }
+    syncTrackAll();
     render();
   });
 });
